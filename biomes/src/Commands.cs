@@ -1,5 +1,4 @@
-using System.Runtime.CompilerServices;
-using Biomes.util;
+using Biomes.Utils;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -9,13 +8,13 @@ namespace Biomes;
 
 public class Commands
 {
-    private readonly BiomesModSystem _biomesMod;
+    private readonly BiomesModSystem _mod;
     private readonly ICoreServerAPI _sapi;
 
 
     public Commands(BiomesModSystem mod, ICoreServerAPI sapi)
     {
-        _biomesMod = mod;
+        _mod = mod;
         _sapi = sapi;
 
         _sapi.ChatCommands.Create("biomes")
@@ -43,20 +42,16 @@ public class Commands
             .BeginSubCommand("unconfigured")
             .HandleWith(OnUnconfiguredCommand)
             .EndSubCommand()
-            .BeginSubCommand("hemisphere")
-            .WithArgs(sapi.ChatCommands.Parsers.WordRange("hemisphere", Enum.GetNames(typeof(EnumHemisphere))))
-            .HandleWith(OnSetHemisphereCommand)
-            .EndSubCommand()
             .BeginSubCommand("add")
             .WithArgs(sapi.ChatCommands.Parsers.WordRange("realm",
-                _biomesMod.Config.Realms.AllRealms()
+                _mod.Config.ValidRealms
                     .Select(i => i.Replace(' ', '_'))
                     .ToArray()))
             .HandleWith(OnAddRealmCommand)
             .EndSubCommand()
             .BeginSubCommand("remove")
             .WithArgs(sapi.ChatCommands.Parsers.WordRange("realm",
-                _biomesMod.Config.Realms.AllRealms()
+                _mod.Config.ValidRealms
                     .Select(i => i.Replace(' ', '_'))
                     .ToArray()))
             .HandleWith(OnRemoveRealmCommand)
@@ -65,65 +60,58 @@ public class Commands
 
     private TextCommandResult OnTreesCommand(TextCommandCallingArgs args)
     {
-        var chunkRealms = new List<string>();
-        if (ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref chunkRealms) ==
-            EnumCommandStatus.Error)
-            return new TextCommandResult
-                { Status = EnumCommandStatus.Error, StatusMessage = Lang.Get("chunknotgenwithbiomes") };
+        var chunk = args.Caller.Entity.World.BlockAccessor.GetMapChunkAtBlockPos(args.Caller.Entity.Pos.AsBlockPos);
+        var chunkData = chunk.GetModdata(ModPropName.MapChunk.BiomeData, new BiomeData(0));
+        var chunkRealms = chunkData.RealmNames(_mod.Config);
+
 
         var trees = new List<string>();
-        foreach (var item in _biomesMod.Config.Trees)
+        foreach (var item in _mod.Config.Trees)
             if (item.Value.biorealm.Intersect(chunkRealms).Any())
                 trees.Add(item.Key);
 
-        var msg = trees.Order().Distinct().Join(delimiter: "\r\n");
-        _sapi.Logger.Debug($"Biomes Trees {string.Join(',', chunkRealms)}:\r\n{msg}");
+        var msg = trees.Order().Distinct().Join(delimiter: "\n");
+        _sapi.Logger.Debug($"Biomes Trees {string.Join(',', chunkRealms)}:\n{msg}");
         return new TextCommandResult { Status = EnumCommandStatus.Success, StatusMessage = msg };
     }
 
     private TextCommandResult OnFruitTreesCommand(TextCommandCallingArgs args)
     {
-        var chunkRealms = new List<string>();
-        if (ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref chunkRealms) ==
-            EnumCommandStatus.Error)
-            return new TextCommandResult
-                { Status = EnumCommandStatus.Error, StatusMessage = Lang.Get("chunknotgenwithbiomes") };
+        var chunk = args.Caller.Entity.World.BlockAccessor.GetMapChunkAtBlockPos(args.Caller.Entity.Pos.AsBlockPos);
+        var chunkData = chunk.GetModdata(ModPropName.MapChunk.BiomeData, new BiomeData(0));
+        var chunkRealms = chunkData.RealmNames(_mod.Config);
 
         var trees = new List<string>();
-        foreach (var item in _biomesMod.Config.FruitTrees)
+        foreach (var item in _mod.Config.FruitTrees)
             if (item.Value.biorealm.Intersect(chunkRealms).Any())
                 trees.Add(item.Key);
 
-        var msg = trees.Order().Distinct().Join(delimiter: "\r\n");
-        _sapi.Logger.Debug($"Biomes Fruit Trees {string.Join(',', chunkRealms)}:\r\n{msg}");
+        var msg = trees.Order().Distinct().Join(delimiter: "\n");
+        _sapi.Logger.Debug($"Biomes Fruit Trees {string.Join(',', chunkRealms)}:\n{msg}");
         return new TextCommandResult { Status = EnumCommandStatus.Success, StatusMessage = msg };
     }
 
     private TextCommandResult OnBlockPatchCommand(TextCommandCallingArgs args)
     {
-        var chunkRealms = new List<string>();
-        if (ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref chunkRealms) ==
-            EnumCommandStatus.Error)
-            return new TextCommandResult
-                { Status = EnumCommandStatus.Error, StatusMessage = Lang.Get("chunknotgenwithbiomes") };
+        var chunk = args.Caller.Entity.World.BlockAccessor.GetMapChunkAtBlockPos(args.Caller.Entity.Pos.AsBlockPos);
+        var chunkData = chunk.GetModdata(ModPropName.MapChunk.BiomeData, new BiomeData(0));
+        var chunkRealms = chunkData.RealmNames(_mod.Config);
 
         var bp = new List<string>();
-        foreach (var item in _biomesMod.Config.BlockPatches)
+        foreach (var item in _mod.Config.BlockPatches)
             if (item.Value.biorealm.Intersect(chunkRealms).Any())
                 bp.Add(item.Key);
 
-        var msg = bp.Order().Distinct().Join(delimiter: "\r\n");
-        _sapi.Logger.Debug($"Biomes Blockpatches {string.Join(',', chunkRealms)}:\r\n{msg}");
+        var msg = bp.Order().Distinct().Join(delimiter: "\n");
+        _sapi.Logger.Debug($"Biomes Blockpatches {string.Join(',', chunkRealms)}:\n{msg}");
         return new TextCommandResult { Status = EnumCommandStatus.Success, StatusMessage = msg };
     }
 
     private TextCommandResult OnEntityCommand(TextCommandCallingArgs args)
     {
-        var chunkRealms = new List<string>();
-        if (ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref chunkRealms) ==
-            EnumCommandStatus.Error)
-            return new TextCommandResult
-                { Status = EnumCommandStatus.Error, StatusMessage = Lang.Get("chunknotgenwithbiomes") };
+        var chunk = args.Caller.Entity.World.BlockAccessor.GetMapChunkAtBlockPos(args.Caller.Entity.Pos.AsBlockPos);
+        var chunkData = chunk.GetModdata(ModPropName.MapChunk.BiomeData, new BiomeData(0));
+        var chunkRealms = chunkData.RealmNames(_mod.Config);
 
         var entityTypes = new List<string>();
         foreach (var entity in _sapi.World.EntityTypes)
@@ -132,150 +120,90 @@ public class Commands
                     if (chunkRealms.Contains(realm.ToString()))
                         entityTypes.Add(entity.Code);
 
-        var msg = entityTypes.Order().Distinct().Join(delimiter: "\r\n");
-        _sapi.Logger.Debug($"Biomes Entities {string.Join(',', chunkRealms)}:\r\n{msg}");
+        var msg = entityTypes.Order().Distinct().Join(delimiter: "\n");
+        _sapi.Logger.Debug($"Biomes Entities {string.Join(',', chunkRealms)}:\n{msg}");
         return new TextCommandResult { Status = EnumCommandStatus.Success, StatusMessage = msg };
     }
 
     private TextCommandResult OnUnconfiguredCommand(TextCommandCallingArgs args)
     {
-        var chunkRealms = new List<string>();
-        if (ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref chunkRealms) ==
-            EnumCommandStatus.Error)
-            return new TextCommandResult
-                { Status = EnumCommandStatus.Error, StatusMessage = Lang.Get("chunknotgenwithbiomes") };
-
         var entityTypes = new List<string>();
         foreach (var entity in _sapi.World.EntityTypes)
             if ((entity.Attributes == null || !entity.Attributes.KeyExists(ModPropName.Entity.Realm)) &&
-                !_biomesMod.Entities.Whitelist.Contains(entity.Code))
+                !_mod.Cache.Entities.Whitelist.Contains(entity.Code))
                 entityTypes.Add(entity.Code);
 
-        var msg = entityTypes.Order().Distinct().Join(delimiter: "\r\n");
-        _sapi.Logger.Debug($"Biomes Unconfigured Entities:\r\n{msg}");
+        var msg = entityTypes.Order().Distinct().Join(delimiter: "\n");
+        _sapi.Logger.Debug($"Biomes Unconfigured Entities:\n{msg}");
         return new TextCommandResult
-            { Status = EnumCommandStatus.Success, StatusMessage = "Written to server debug log" };
+            { Status = EnumCommandStatus.Success, StatusMessage = msg };
     }
 
     private TextCommandResult OnWhitelistCommand(TextCommandCallingArgs args)
     {
-        var chunkRealms = new List<string>();
-        if (ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref chunkRealms) ==
-            EnumCommandStatus.Error)
-            return new TextCommandResult
-                { Status = EnumCommandStatus.Error, StatusMessage = Lang.Get("chunknotgenwithbiomes") };
+        var joinedWhitelist = _mod.Cache.Entities.Whitelist.Select(x => x.ToString()).Join(delimiter: "\n");
 
-        var entityTypes = new List<string>();
-        foreach (var entity in _sapi.World.EntityTypes)
-            if (_biomesMod.Entities.Whitelist.Contains(entity.Code))
-                entityTypes.Add(entity.Code);
-
-        var msg = entityTypes.Order().Distinct().Join(delimiter: "\r\n");
-        _sapi.Logger.Debug($"Biomes Whitelist:\r\n{msg}");
-        return new TextCommandResult { Status = EnumCommandStatus.Success, StatusMessage = msg };
+        _sapi.Logger.Debug($"Biomes Whitelist:\n{joinedWhitelist}");
+        return new TextCommandResult { Status = EnumCommandStatus.Success, StatusMessage = joinedWhitelist };
     }
 
     private TextCommandResult OnShowBiomeCommand(TextCommandCallingArgs args)
     {
-        var chunkHemisphere = EnumHemisphere.North;
-        if (ModProperty.Get(args.Caller, ModPropName.Map.Hemisphere,
-                ref chunkHemisphere) ==
-            EnumCommandStatus.Error)
+        var chunk = args.Caller.Entity.World.BlockAccessor.GetMapChunkAtBlockPos(args.Caller.Entity.Pos.AsBlockPos);
+
+        _mod.Mod.Logger.Error($"chunk: ${chunk}");
+        var biomeData = chunk.GetModdata(ModPropName.MapChunk.BiomeData, new BiomeData(0));
+        if (biomeData.IsNullData())
             return new TextCommandResult
                 { Status = EnumCommandStatus.Error, StatusMessage = Lang.Get("chunknotgenwithbiomes") };
-        var hemisphereStr = Enum.GetName(typeof(EnumHemisphere), chunkHemisphere).ToLower();
 
-        var chunkRealms = new List<string>();
-        if (ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref chunkRealms) ==
-            EnumCommandStatus.Error)
-            return new TextCommandResult
-                { Status = EnumCommandStatus.Error, StatusMessage = Lang.Get("chunknotgenwithbiomes") };
-        var realmsStr = chunkRealms?.Join(delimiter: ",");
+        var realms = biomeData.RealmNames(_mod.Config);
 
-        var riversModNotInstalled = Lang.Get("chunknotgenwithrivers");
-        var chunkRiver = riversModNotInstalled;
-        var blockRiver = riversModNotInstalled;
-        if (_biomesMod.IsRiversModInstalled)
-        {
-            var cr = false;
-            if (ModProperty.Get(args.Caller, ModPropName.MapChunk.RiverBool, ref cr) !=
-                EnumCommandStatus.Error)
-                chunkRiver = cr ? "true" : "false";
-            else
-                chunkRiver = "not set";
+        var realmsStr = realms.Join(delimiter: ",");
 
-            bool[] arr = null;
-            if (ModProperty.Get(args.Caller, ModPropName.MapChunk.RiverArray, ref arr) !=
-                EnumCommandStatus.Error)
-            {
-                var blockPos = args.Caller.Entity.Pos.AsBlockPos;
-                blockRiver =
-                    arr[
-                        blockPos.Z % _sapi.WorldManager.ChunkSize * _sapi.WorldManager.ChunkSize +
-                        blockPos.X % _sapi.WorldManager.ChunkSize]
-                        ? "true"
-                        : "false";
-            }
-            else
-            {
-                blockRiver = "not set";
-            }
-        }
-
+        var validRiver = biomeData.GetRiver();
+        var validNoRiver = biomeData.GetNoRiver();
         return new TextCommandResult
         {
             Status = EnumCommandStatus.Success,
             StatusMessage =
-                $"Hemisphere: {hemisphereStr}\nRealms: {realmsStr}\nChunk has river: {chunkRiver}\nBlock has river: {blockRiver}"
+                $"Realms: {realmsStr}\nValid For River Spawns: {validRiver}\nValid for No River Spawns: {validNoRiver}"
         };
-    }
-
-    private TextCommandResult OnSetHemisphereCommand(TextCommandCallingArgs args)
-    {
-        if (Enum.TryParse(args.Parsers[0].GetValue() as string, out EnumHemisphere hemisphere))
-            return new TextCommandResult
-            {
-                Status = ModProperty.Set(args.Caller,
-                    ModPropName.Map.Hemisphere, hemisphere)
-            };
-
-        return new TextCommandResult
-            { Status = EnumCommandStatus.Error, StatusMessage = "Bad hemisphere argument" };
     }
 
     private TextCommandResult OnAddRealmCommand(TextCommandCallingArgs args)
     {
-        var currentRealms = new List<string>();
-        ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref currentRealms);
-        if (Unsafe.IsNullRef(ref currentRealms))
-            currentRealms = new List<string>();
+        var chunk = args.Caller.Entity.World.BlockAccessor.GetMapChunkAtBlockPos(args.Caller.Entity.Pos.AsBlockPos);
+        var chunkData = chunk.GetModdata(ModPropName.MapChunk.BiomeData, new BiomeData(0));
 
         var value = (args.Parsers[0].GetValue() as string).Replace('_', ' ');
-        currentRealms.Add(value);
+
+        chunkData.SetRealm(_mod.Config.ValidRealmIndexes[value], true);
+
+        chunk.SetModdata(ModPropName.MapChunk.BiomeData, chunkData);
 
         return new TextCommandResult
         {
-            Status = ModProperty.Set(args.Caller, ModPropName.Map.Realm,
-                currentRealms.Distinct()),
-            StatusMessage = currentRealms?.Join(delimiter: ",")
+            Status = EnumCommandStatus.Success,
+            StatusMessage = "Added to realms list"
         };
     }
 
     private TextCommandResult OnRemoveRealmCommand(TextCommandCallingArgs args)
     {
-        var currentRealms = new List<string>(0);
-        ModProperty.Get(args.Caller, ModPropName.Map.Realm, ref currentRealms);
-        if (Unsafe.IsNullRef(ref currentRealms))
-            currentRealms = new List<string>();
+        var chunk = args.Caller.Entity.World.BlockAccessor.GetMapChunkAtBlockPos(args.Caller.Entity.Pos.AsBlockPos);
+        var chunkData = chunk.GetModdata(ModPropName.MapChunk.BiomeData, new BiomeData(0));
 
         var value = (args.Parsers[0].GetValue() as string).Replace('_', ' ');
-        currentRealms.Remove(value);
+
+        chunkData.SetRealm(_mod.Config.ValidRealmIndexes[value], false);
+
+        chunk.SetModdata(ModPropName.MapChunk.BiomeData, chunkData);
 
         return new TextCommandResult
         {
-            Status = ModProperty.Set(args.Caller, ModPropName.Map.Realm,
-                currentRealms.Distinct()),
-            StatusMessage = currentRealms?.Join(delimiter: ",")
+            Status = EnumCommandStatus.Success,
+            StatusMessage = "Removed from realms list"
         };
     }
 }

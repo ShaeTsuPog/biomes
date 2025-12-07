@@ -1,3 +1,4 @@
+using Biomes.RealmGen;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Vintagestory.API.Common;
@@ -49,6 +50,21 @@ public enum BioRiver
     RiverOnly
 }
 
+public static class BioRiverExtensions
+{
+    public static BioRiver FromString(string value)
+    {
+        var lowercase = value.ToLowerInvariant();
+        return lowercase switch
+        {
+            "false" or "noriver" => BioRiver.NoRiver,
+            "both" => BioRiver.Both,
+            "true" or "riveronly" => BioRiver.RiverOnly,
+            _ => throw new JsonSerializationException($"Unknown bioriver value: {value}")
+        };
+    }
+}
+
 public struct ConfigItem
 {
     public List<string> biorealm = [];
@@ -57,21 +73,26 @@ public struct ConfigItem
     public ConfigItem()
     {
     }
-}
 
-public class RealmsConfig(List<string> northernRealms, List<string> southernRealms)
-{
-    public readonly List<string> NorthernRealms = northernRealms;
-    public readonly List<string> SouthernRealms = southernRealms;
-
-    public List<string> AllRealms()
+    public BiomeData ToBiomeData(BiomesConfig config)
     {
-        return NorthernRealms.Union(SouthernRealms).ToList();
-    }
+        var biomeDataValue = 0;
+        foreach (var realm in biorealm)
+        {
+            var mask = 1 << config.ValidRealmIndexes[realm];
+            biomeDataValue |= mask;
+        }
 
-    public RealmsConfig Flipped()
-    {
-        return new RealmsConfig(SouthernRealms, NorthernRealms);
+        var riverMask = river switch
+        {
+            BioRiver.NoRiver => BiomeData.NoRiverMask,
+            BioRiver.Both => BiomeData.BothMask,
+            BioRiver.RiverOnly => BiomeData.RiverMask,
+            _ => throw new ArgumentOutOfRangeException("What?")
+        };
+        biomeDataValue |= riverMask;
+
+        return new BiomeData(biomeDataValue);
     }
 }
 
@@ -106,21 +127,35 @@ public static class SpawningModeMethods
 
 public class UserConfig
 {
+    public readonly bool AutoMigrateOldData = true;
     public readonly bool Debug = false;
     public readonly List<string> EntitySpawnWhiteList = [];
-    public readonly bool FlipNorthSouth = false;
+
+    public readonly RealmGenConfig RealmGenerationConfig = new BlendedRealmConfig
+    {
+        ChunkHorizontalBlendThreshold = 0.001,
+        ChunkLatBlendThreshold = 0.01,
+        NorthernRealms = DefaultRealmOrder.Northern,
+        SouthernRealms = DefaultRealmOrder.Southern
+    };
+
     [JsonConverter(typeof(StringEnumConverter))]
     public readonly NoSupportSpawningMode SpawnMode = NoSupportSpawningMode.AllowButWarn;
 }
 
 public class BiomesConfig
 {
+    public const int MaxValidRealms = BiomeData.SeasonsBitOffset;
+
     public Dictionary<string, ConfigItem> BlockPatches = [];
     public Dictionary<string, ConfigItem> FruitTrees = [];
 
-    public RealmsConfig Realms = new([], []);
     public Dictionary<string, ConfigItem> Trees = [];
+
+
     public UserConfig User = new();
+    public Dictionary<string, int> ValidRealmIndexes = new();
+    public List<string> ValidRealms = [];
 
     public List<string> Whitelist = [];
 
@@ -129,22 +164,25 @@ public class BiomesConfig
         User = api.LoadModConfig<UserConfig>("biomes.json");
         User ??= new UserConfig();
         api.StoreModConfig(User, "biomes.json");
-
-        if (User.FlipNorthSouth) Realms = Realms.Flipped();
     }
 
     public void LoadConfigs(BiomesModSystem mod, ICoreAPI api)
     {
-        LoadRealms(mod, api);
+        LoadValidRealms(mod, api);
         LoadLegacyConfigs(mod, api);
         LoadUserConfig(api);
         LoadWhitelist(mod, api);
     }
 
-    public void LoadRealms(BiomesModSystem mod, ICoreAPI api)
+    public void LoadValidRealms(BiomesModSystem mod, ICoreAPI api)
     {
         var asset = api.Assets.Get($"{mod.Mod.Info.ModID}:config/realms.json").ToText()!;
-        Realms = JsonConvert.DeserializeObject<RealmsConfig>(asset)!;
+        ValidRealms = JsonConvert.DeserializeObject<List<string>>(asset)!;
+        // Arbitrary magic number picked to give 8 bits of headroom
+        if (ValidRealms.Count > MaxValidRealms)
+            throw new Exception($"Realms has too many specified realms, must be < {MaxValidRealms}");
+
+        for (var i = 0; i < ValidRealms.Count; i += 1) ValidRealmIndexes[ValidRealms[i]] = i;
     }
 
     public void LoadLegacyConfigs(BiomesModSystem mod, ICoreAPI api)

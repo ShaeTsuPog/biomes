@@ -1,6 +1,6 @@
 using Vintagestory.API.Common;
 
-namespace Biomes.util;
+namespace Biomes.Utils;
 
 internal static class ModPropName
 {
@@ -22,6 +22,7 @@ internal static class ModPropName
     {
         public const string RiverArray = "bioriverarray";
         public const string RiverBool = "bioriverbool";
+        public const string BiomeData = "biomes:biomedata";
     }
 }
 
@@ -31,7 +32,7 @@ internal static class ModProperty
     {
         if (chunk == null)
             return EnumCommandStatus.Error;
-        
+
         value = chunk.GetModdata<T>(name);
         return value == null ? EnumCommandStatus.Error : EnumCommandStatus.Success;
     }
@@ -46,12 +47,12 @@ internal static class ModProperty
     {
         if (chunk == null)
             return EnumCommandStatus.Error;
-        
+
         chunk.SetModdata(name, value);
         chunk.MarkDirty();
         return EnumCommandStatus.Success;
     }
-    
+
     public static EnumCommandStatus Set(Caller caller, string name, object value)
     {
         var chunk = caller.Entity.World.BlockAccessor.GetMapChunkAtBlockPos(caller.Entity.Pos.AsBlockPos);

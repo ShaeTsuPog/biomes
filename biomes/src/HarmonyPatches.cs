@@ -1,13 +1,12 @@
-using Biomes.util;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
-using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 using Vintagestory.Server;
 using Vintagestory.ServerMods;
 using Vintagestory.ServerMods.NoObf;
+
 // ReSharper disable InconsistentNaming
 // ReSharper disable UnusedMember.Global
 
@@ -39,10 +38,11 @@ public static class HarmonyPatches
         var code = __instance.Code!;
         __state = __instance.WorldGenConds;
 
-        var chunk = blockAccessor.GetMapChunkAtBlockPos(pos);
-        var realms = Util.GetChunkRealms(chunk);
+        var biomeData = _mod.Cache.ChunkData.GetBiomeData(pos);
+        if (biomeData.IsNullData()) return true;
+
         var cached =
-            _mod.Cache.GetCachedFruitTrees(realms, code, ref __state, ref _mod.Config.FruitTrees);
+            _mod.Cache.Vegetation.GetFruitTrees(biomeData, code, ref __state);
 
         __instance.WorldGenConds = cached;
         return true;
@@ -69,21 +69,19 @@ public static class HarmonyPatches
 
         __state = (underTreeValue, onTreeValue);
 
-        var chunk = blockAccessor.GetMapChunkAtBlockPos(pos);
-        var realms = Util.GetChunkRealms(chunk);
-        if (realms == null) return true;
+        var biomeData = _mod.Cache.ChunkData.GetBiomeData(pos);
+        if (biomeData.IsNullData()) return true;
 
-        var cachedUnderTree = _mod.Cache.GetCachedUnderTreePatches(realms, ref underTreeValue,
-            ref _mod.Config.BlockPatches);
+        var cachedUnderTree = _mod.Cache.Vegetation.GetUnderTreePatches(biomeData, ref underTreeValue);
         underTreeField.SetValue(cachedUnderTree);
 
         var cachedOnTree =
-            _mod.Cache.GetCachedTreePatches(realms, ref onTreeValue, ref _mod.Config.BlockPatches);
+            _mod.Cache.Vegetation.GetTreePatches(biomeData, ref onTreeValue);
         onTreeField.SetValue(cachedOnTree);
 
         return true;
     }
-    
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(ForestFloorSystem), "GenPatches")]
     public static void GenPatchesTreePostfix(ref ForestFloorSystem __instance,
@@ -98,16 +96,13 @@ public static class HarmonyPatches
     public static bool genPatchesPrefix(ref GenVegetationAndPatches __instance, out BlockPatch[] __state, int chunkX,
         int chunkZ, bool postPass)
     {
-        var blockAccessor = Traverse.Create(__instance).Field("blockAccessor").GetValue() as IWorldGenBlockAccessor;
         var bpc = Traverse.Create(__instance).Field("bpc").GetValue() as BlockPatchConfig;
         __state = bpc!.PatchesNonTree;
 
-        var chunk = blockAccessor.GetMapChunk(chunkX, chunkZ);
-        var realms = Util.GetChunkRealms(chunk);
-        if (realms == null) return true;
+        var biomeData = _mod.Cache.ChunkData.GetBiomeData(chunkX, chunkZ);
+        if (biomeData.IsNullData()) return true;
 
-        bpc.PatchesNonTree = _mod.Cache.GetCachedGroundPatches(realms, ref bpc.PatchesNonTree,
-            ref _mod.Config.BlockPatches);
+        bpc.PatchesNonTree = _mod.Cache.Vegetation.GetGroundPatches(biomeData, ref bpc.PatchesNonTree);
         return true;
     }
 
@@ -125,18 +120,15 @@ public static class HarmonyPatches
     public static bool genShrubsPrefix(ref GenVegetationAndPatches __instance, out TreeVariant[] __state,
         int chunkX, int chunkZ)
     {
-        var blockAccessor = Traverse.Create(__instance).Field("blockAccessor").GetValue() as IWorldGenBlockAccessor;
         var treeSupplier = Traverse.Create(__instance).Field("treeSupplier").GetValue() as WgenTreeSupplier;
         var treeGenProps = Traverse.Create(treeSupplier).Field("treeGenProps").GetValue() as TreeGenProperties;
         __state = treeGenProps!.ShrubGens;
 
-        var chunk = blockAccessor.GetMapChunk(chunkX, chunkZ);
-        var realms = Util.GetChunkRealms(chunk);
-        if (realms == null) return true;
+        var biomeData = _mod.Cache.ChunkData.GetBiomeData(chunkX, chunkZ);
+        if (biomeData.IsNullData()) return true;
 
-        realms.Sort(StringComparer.Ordinal);
         treeGenProps.ShrubGens =
-            _mod.Cache.GetCachedShrubs(realms, ref treeGenProps.ShrubGens, ref _mod.Config.Trees);
+            _mod.Cache.Vegetation.GetShrubs(biomeData, ref treeGenProps.ShrubGens);
         return true;
     }
 
@@ -155,17 +147,15 @@ public static class HarmonyPatches
     public static bool genTreesPrefix(ref GenVegetationAndPatches __instance, out TreeVariant[] __state, int chunkX,
         int chunkZ)
     {
-        var blockAccessor = Traverse.Create(__instance).Field("blockAccessor").GetValue() as IWorldGenBlockAccessor;
         var treeSupplier = Traverse.Create(__instance).Field("treeSupplier").GetValue() as WgenTreeSupplier;
         var treeGenProps = Traverse.Create(treeSupplier).Field("treeGenProps").GetValue() as TreeGenProperties;
         __state = treeGenProps!.TreeGens;
 
-        var chunk = blockAccessor.GetMapChunk(chunkX, chunkZ);
-        var realms = Util.GetChunkRealms(chunk);
-        if (realms == null) return true;
+        var biomeData = _mod.Cache.ChunkData.GetBiomeData(chunkX, chunkZ);
+        if (biomeData.IsNullData()) return true;
 
         treeGenProps.TreeGens =
-            _mod.Cache.GetCachedTrees(realms, ref treeGenProps.TreeGens, ref _mod.Config.Trees);
+            _mod.Cache.Vegetation.GetTrees(biomeData, ref treeGenProps.TreeGens);
         return true;
     }
 
@@ -185,7 +175,7 @@ public static class HarmonyPatches
     public static bool CanSpawnAtPosition(ref bool __result, IBlockAccessor blockAccessor, EntityProperties type,
         BlockPos pos, BaseSpawnConditions sc)
     {
-        __result = _mod.Entities.IsSpawnValid(blockAccessor.GetMapChunkAtBlockPos(pos), type, pos);
+        __result = _mod.Cache.Entities.IsSpawnValid(type, pos);
         return __result;
     }
 
@@ -195,6 +185,7 @@ public static class HarmonyPatches
     public static bool CanSpawnAt(ref Vec3d? __result, EntityProperties type, Vec3i spawnPosition,
         RuntimeSpawnConditions sc, IWorldChunk[] chunkCol)
     {
-        return chunkCol.Length != 0 && _mod.Entities.IsSpawnValid(chunkCol[0].MapChunk, type, spawnPosition.AsBlockPos);
+        return chunkCol.Length != 0 &&
+               _mod.Cache.Entities.IsSpawnValid(type, spawnPosition.AsBlockPos);
     }
 }
