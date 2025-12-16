@@ -1,0 +1,43 @@
+[
+  {
+    "file": "feverstonehorses:entities/land/horse.json",
+    "op": "addmerge",
+    "path": "/attributesByType",
+    "value": {
+      "*-percheron": {
+        "biorealm": [
+          "atlantic palearctic"
+        ]
+      },
+      "*-arabian": {
+        "biorealm": [
+          "central palearctic"
+        ]
+      },
+      "*-donkey": {
+        "biorealm": [
+          "atlantic palearctic",
+          "central palearctic",
+          "eastern palearctic"
+        ]
+      },
+      "*-quarter": {
+        "biorealm": [
+          "pacific nearctic",
+          "atlantic nearctic"
+        ]
+      },
+      "*-shire": {
+        "biorealm": [
+          "atlantic palearctic"
+        ]
+      }
+    },
+    "side": "server",
+    "dependsOn": [
+      {
+        "modid": "feverstonehorses"
+      }
+    ]
+  }
+]

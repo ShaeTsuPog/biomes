@@ -1,0 +1,36 @@
+[
+  // something?
+  "game:testship",
+  // nonliving
+  "game:armorstand*",
+  "game:arrow-*",
+  "game:blockfalling",
+  // little hack to make all types of boats including modded ones spawn properly
+  "*boat*",
+  "game:item",
+  "game:thrown*",
+  "game:spear-*",
+  "game:*skeleton*",
+  "game:strawdummy",
+  // important base entities
+  "game:player*",
+  // lore mobs
+  "game:animalbot-*",
+  "game:bell*",
+  "game:bowtorn*",
+  "game:drifter*",
+  "game:echochamber",
+  "game:eidolon-*",
+  "game:elevator",
+  "game:erel*",
+  "game:library*",
+  "game:locust-*",
+  "game:mechhelper",
+  "game:shiver-*",
+  //humanoids
+  "game:humanoid-*",
+  "game:villager-*",
+  // tame elk
+  "game:semitameddeer*",
+  "game:tamedeer*"
+]
